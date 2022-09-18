@@ -1,3 +1,4 @@
+import os
 import numpy as np
 from skimage.io import imread, imsave
 import argparse
@@ -13,25 +14,20 @@ parser.add_argument("--nonce_file", type=str, default="nonce.dat", help="Used fo
 parser.add_argument("--enc_img", type=str, default="img_encrypt.jpg", help="File to read/write encrypted image.")
 parser.add_argument("--dec_img", type=str, default="img_decrypt.jpg", help="File to read/write decrypted image.")
 parser.add_argument("--tag_file", type=str, default="tag.dat", help="Tag (signature) generated after encryption.")
+parser.add_argument("--dir", type=str, default="data", help="Directory to store all data.")
 
 args = parser.parse_args()
-
-if args.key_file:
-    with open(args.key_file, "r") as f:
-        key = f.read()
-else:
-    key = args.key.encode()
-
+file_handler = utils.FileReaderWriter(args.dir)
+key = file_handler.read_file(args.key_file, "r") if args.key_file else args.key.encode()
 
 if args.task == "encrypt":
     # Generate cipher object and nonce
     cipherkey, nonce = utils.aes_cipherkey(key)
 
     # Very important. Required during decryption
-    with open(args.nonce_file, "wb") as f:
-        f.write(nonce)
+    file_handler.write_file(nonce, args.nonce_file, "wb")
 
-    data = imread(args.img)
+    data = imread(os.path.join(args.dir, args.img))
     shape = data.shape
     data = bytes(data.flatten().tolist())
 
@@ -39,32 +35,27 @@ if args.task == "encrypt":
     ciphertext, tag = utils.encrypt_aes(data, cipherkey)
 
     img = np.array(list(ciphertext), dtype=np.uint8).reshape(shape)
-    imsave(args.enc_img, img)
-    with open(args.enc_img.split(".")[0] + ".dat", "wb") as f:
-        f.write(ciphertext)
+    imsave(os.path.join(args.dir, args.enc_img), img)
+    file_handler.write_file(ciphertext, args.enc_img.split(".")[0] + ".dat", "wb")
 
-    with open(args.tag_file, "wb") as f:
-        f.write(tag)
+    file_handler.write_file(tag, args.tag_file, "wb")
 
 elif args.task == "decrypt":
-    with open(args.nonce_file, "rb") as f:
-        nonce = f.read()
+    nonce = file_handler.read_file(args.nonce_file, "rb")
 
     # Generate cipher object and nonce
     cipherkey, _ = utils.aes_cipherkey(key, nonce)
 
-    data = imread(args.enc_img)
+    data = imread(os.path.join(args.dir, args.enc_img))
     shape = data.shape
-    with open(args.enc_img.split(".")[0] + ".dat", "rb") as f:
-        ciphertext = f.read()
+    ciphertext = file_handler.read_file(args.enc_img.split(".")[0] + ".dat", "rb")
 
-    with open(args.tag_file, "rb") as f:
-        tag = f.read()
+    tag = file_handler.read_file(args.tag_file, "rb")
 
     # Decrypt image file using AES
     img_data = utils.decrypt_aes(ciphertext, cipherkey)
 
     img = np.array(list(img_data), dtype=np.uint8).reshape(shape)
-    imsave(args.dec_img, img)
+    imsave(os.path.join(args.dir, args.dec_img), img)
 
     utils.verify_data(cipherkey, tag)

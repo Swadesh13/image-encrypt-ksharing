@@ -1,3 +1,4 @@
+import os
 from Crypto.Cipher import AES
 
 
@@ -35,3 +36,17 @@ def verify_data(cipher, tag):
         print("The message is authentic.")
     except ValueError:
         print("Key incorrect or message corrupted.")
+
+
+class FileReaderWriter:
+    def __init__(self, direc: str):
+        self.dir = direc
+
+    def read_file(self, file_path: str, mode: str = "r"):
+        with open(os.path.join(self.dir, file_path), mode) as f:
+            data = f.read()
+        return data
+
+    def write_file(self, data, file_path: str, mode: str = "w"):
+        with open(os.path.join(self.dir, file_path), mode) as f:
+            f.write(data)
