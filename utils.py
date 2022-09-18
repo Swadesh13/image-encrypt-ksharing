@@ -1,4 +1,6 @@
 import os
+import math
+import numpy as np
 from Crypto.Cipher import AES
 
 
@@ -50,3 +52,14 @@ class FileReaderWriter:
     def write_file(self, data, file_path: str, mode: str = "w"):
         with open(os.path.join(self.dir, file_path), mode) as f:
             f.write(data)
+
+
+def generate_mask(n: int, k: int):
+    bin_arr = []
+    max_val = 2**n - 1
+    for i in range(max_val, 0, -1):
+        bin_value = list(bin(i))[2:]
+        bin_value = ["0"] * (n - len(bin_value)) + bin_value
+        if np.sum(np.array(bin_value) == "0") == k - 1:
+            bin_arr.append(bin_value)
+    return np.array(bin_arr, dtype=int).T
