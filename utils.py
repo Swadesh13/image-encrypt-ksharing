@@ -63,3 +63,13 @@ def generate_mask(n: int, k: int):
         if np.sum(np.array(bin_value) == "0") == k - 1:
             bin_arr.append(bin_value)
     return np.array(bin_arr, dtype=int).T
+
+def nk_shares(img, n, k):
+    masks = generate_mask(n,k)
+    shares = []
+    for i, mask in enumerate(masks):
+        new_img = []
+        for row in img:
+            new_img.append(np.ma.compressed(np.ma.masked_where(mask==0, row)))
+        shares.append(new_img)
+    return np.array(shares)
