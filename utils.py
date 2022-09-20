@@ -1,5 +1,4 @@
 import os
-import math
 import numpy as np
 from Crypto.Cipher import AES
 
@@ -54,22 +53,94 @@ class FileReaderWriter:
             f.write(data)
 
 
-def generate_mask(n: int, k: int):
-    bin_arr = []
-    max_val = 2**n - 1
-    for i in range(max_val, 0, -1):
-        bin_value = list(bin(i))[2:]
-        bin_value = ["0"] * (n - len(bin_value)) + bin_value
-        if np.sum(np.array(bin_value) == "0") == k - 1:
-            bin_arr.append(bin_value)
+def distinct_permutations(iterable, r=None):
+    def _full(A):
+        while True:
+            yield tuple(A)
+
+            for i in range(size - 2, -1, -1):
+                if A[i] < A[i + 1]:
+                    break
+            else:
+                return
+
+            for j in range(size - 1, i, -1):
+                if A[i] < A[j]:
+                    break
+
+            A[i], A[j] = A[j], A[i]
+            A[i + 1 :] = A[: i - size : -1]
+
+    def _partial(A, r):
+        head, tail = A[:r], A[r:]
+        right_head_indexes = range(r - 1, -1, -1)
+        left_tail_indexes = range(len(tail))
+
+        while True:
+            yield tuple(head)
+            pivot = tail[-1]
+            for i in right_head_indexes:
+                if head[i] < pivot:
+                    break
+                pivot = head[i]
+            else:
+                return
+
+            for j in left_tail_indexes:
+                if tail[j] > head[i]:
+                    head[i], tail[j] = tail[j], head[i]
+                    break
+            else:
+                for j in right_head_indexes:
+                    if head[j] > head[i]:
+                        head[i], head[j] = head[j], head[i]
+                        break
+
+            tail += head[: i - r : -1]
+            i += 1
+            head[i:], tail[:] = tail[: r - i], tail[r - i :]
+
+    items = sorted(iterable)
+
+    size = len(items)
+    if r is None:
+        r = size
+
+    if 0 < r <= size:
+        return _full(items) if (r == size) else _partial(items, r)
+
+    return iter(() if r else ((),))
+
+
+def generate_masks(n: int, k: int):
+    bin_arr = list(distinct_permutations([1] * (n - k + 1) + [0] * (k - 1)))
     return np.array(bin_arr, dtype=int).T
 
+
 def nk_shares(img, n, k):
-    masks = generate_mask(n,k)
+    masks = generate_masks(n, k)
     shares = []
-    for i, mask in enumerate(masks):
+    for mask in masks:
         new_img = []
-        for row in img:
-            new_img.append(np.ma.compressed(np.ma.masked_where(mask==0, row)))
+        mask_ = np.concatenate([np.tile(mask, int(len(img[0]) / len(mask))), mask[: int(len(img[0]) % len(mask))]])
+        new_img = img[:, np.argwhere(mask_), :].reshape(img.shape[0], -1, *img.shape[2:])
         shares.append(new_img)
-    return np.array(shares)
+    return shares
+
+
+def shares_to_img(shares, n: int, k: int, w: int):
+    masks = generate_masks(n, k)
+    orig_shares_img = []
+    for share, mask in zip(shares[:k], masks[:k]):
+        orig_img = np.zeros((share.shape[0], w, *share.shape[2:]), dtype=np.uint8)
+        zero_count = 0
+        for i in range(w):
+            if mask[i % len(mask)]:
+                orig_img[:, i, :] = share[:, i - zero_count, :]
+            else:
+                zero_count += 1
+                orig_img[:, i, :] = np.zeros_like(share[:, 0, :])
+        orig_shares_img.append(np.array(orig_img))
+    for i in range(1, len(orig_shares_img)):
+        np.bitwise_or(orig_shares_img[0], orig_shares_img[i], orig_shares_img[0])
+    return orig_shares_img[0]
