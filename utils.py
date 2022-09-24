@@ -144,3 +144,18 @@ def shares_to_img(shares, n: int, k: int, w: int):
     for i in range(1, len(orig_shares_img)):
         np.bitwise_or(orig_shares_img[0], orig_shares_img[i], orig_shares_img[0])
     return orig_shares_img[0]
+
+
+def random_mask_generator(seed, shape, low=0, high=255):
+    generator = np.random.RandomState(np.random.PCG64(np.random.SeedSequence(seed)))
+    return generator.randint(low, high, shape)
+
+
+def randomize_key2(key2, n, generator):
+    rand_ints = generator.randint(100, 999, n)
+    keys = []
+    for i in range(0, len(str(key2)), 2):
+        key = str(key2)[i : i + 2]
+        key = int(str(rand_ints[int(i / 2)]) + str(key)) % rand_ints[int(i / 2)]
+        keys.append(key)
+    return keys
