@@ -39,16 +39,16 @@ def main():
         key1 = int(key[2 * args.n :])
         generator = np.random.RandomState(np.random.PCG64(np.random.SeedSequence(key1)))
         mask = generator.randint(0, 255, shape)
-        img = ((img_data + mask) % 256).astype(np.uint8)
-        imsave(os.path.join(args.dir, "img_encrypt.png"), img)
+        img = (img_data + mask).astype(np.uint8)
 
         key2 = int(key[: 2 * args.n])
         shares = utils.nk_shares(img, args.n, args.k)
         n_keys = utils.randomize_key2(key2, args.n, generator)
         encrypted_shares = []
         for key, share in zip(n_keys, shares):
-            encrypted_shares.append(((share + utils.random_mask_generator(key, share.shape)) % 256).astype(np.uint8))
+            encrypted_shares.append((share + utils.random_mask_generator(key, share.shape)).astype(np.uint8))
 
+        imsave(os.path.join(args.dir, "img_encrypt.png"), img)
         for i, share in enumerate(encrypted_shares):
             imsave(os.path.join(args.dir, f"share-{i}.png"), share)
 
@@ -62,11 +62,11 @@ def main():
         n_keys = utils.randomize_key2(key2, args.n, generator)
 
         decrypted_shares = []
-        for key, share in zip(n_keys, shares):
-            decrypted_shares.append(((share - utils.random_mask_generator(key, share.shape)) % 256).astype(np.uint8))
+        for key, share in zip(n_keys[: args.k], shares[: args.k]):
+            decrypted_shares.append((share - utils.random_mask_generator(key, share.shape)).astype(np.uint8))
 
         encrypted_img = utils.shares_to_img(decrypted_shares, args.n, args.k, args.width)
-        decrypted_img = ((encrypted_img - mask) % 256).astype(np.uint8)
+        decrypted_img = (encrypted_img - mask).astype(np.uint8)
 
         imsave(os.path.join(args.dir, args.dec_img), decrypted_img)
 
